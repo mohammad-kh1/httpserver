@@ -1,38 +1,40 @@
 # --- Build Configuration ---
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -g -pthread
-LDFLAGS =
-TARGET = build/httpserver
-SRC_DIR = src
+LDFLAGS = -pthread -lz  # <-- FIX: -lz links the zlib library
+TARGET = httpserver
 BUILD_DIR = build
-SRC = $(wildcard $(SRC_DIR)/*.c)
-OBJ = $(SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-
-.PHONY: all build clean run
+SRC_DIR = src
+MAIN_SRC = $(SRC_DIR)/main.c
+MAIN_OBJ = $(BUILD_DIR)/main.o
+EXECUTABLE = $(BUILD_DIR)/$(TARGET)
 
 # Default target
-all: build
+all: $(BUILD_DIR) $(EXECUTABLE)
 
-# Create build directory if it doesn't exist
+# Create the build directory if it doesn't exist
 $(BUILD_DIR):
-	@mkdir -p $@
+	mkdir -p $(BUILD_DIR)
 
-# Link Step: Creates the final executable
-$(TARGET): $(OBJ) | $(BUILD_DIR)
-	@echo "Linking $@"
-	$(CC) $(LDFLAGS) $^ -o $@
+# --- Linking (The Fix is here: LDFLAGS includes -lz) ---
+$(EXECUTABLE): $(MAIN_OBJ)
+	@echo Linking $@
+	$(CC) $(MAIN_OBJ) -o $@ $(LDFLAGS)
 
-# Compile Step: Compiles source files into object files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
-	@echo "Compiling $<"
+# --- Compilation ---
+$(MAIN_OBJ): $(MAIN_SRC)
+	@echo Compiling $<
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean up build artifacts
-clean:
-	@echo "Cleaning up build directory..."
-	@rm -rf $(BUILD_DIR)
+# --- Execution ---
+# Assumes you want to run the server on a default port (8080)
+run: $(EXECUTABLE)
+	@echo Running $(TARGET)...
+	./$(EXECUTABLE) 8080
 
-# Run the server on port 8080 (assumes it's already built)
-run: $(TARGET)
-	@echo "Starting server on port 8080. Press Ctrl+C to stop."
-	./$(TARGET) 8080
+# --- Clean up build files ---
+clean:
+	@echo Cleaning up build directory...
+	rm -rf $(BUILD_DIR)
+
+.PHONY: all run clean
