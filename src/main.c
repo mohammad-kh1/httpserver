@@ -11,6 +11,15 @@
 #define BUFFER_SIZE 2048
 #define PORT_DEFAULT 8080
 
+
+// This is the template for a 200 OK header, which requires the Content-Length to be inserted.
+const char *HTTP_HEADER_200 =
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/html\r\n"
+    "Content-Length: %zu\r\n"
+    "Connection: close\r\n" // Still closing connection explicitly for now
+    "\r\n"; // End of headers
+
 // --- Forward Declarations ---
 void handle_client(int client_sock);
 char* extract_path(const char* request);
@@ -130,6 +139,46 @@ void handle_client(int client_sock) {
         }
     }
 }
+
+
+/**
+ * @brief Constructs a temporary HTML body including the requested path and sends the full HTTP response.
+ *
+ * @param client_sock The file descriptor for the connected client socket.
+ * @param body This parameter is ignored in this simple implementation, but kept for future compatibility.
+ * @param path The extracted URL path to be included in the response.
+ */
+ void send_simple_response(int client_sock , const char* body , const char* path){
+     (void)body; // Silence unused parameter warning for now
+
+     // Dynamically generate the HTML body content to include the path
+     char dynamic_body[BUFFER_SIZE];
+     // Create an HTML response that echoes the path the user requested
+     snprintf(dynamic_body, BUFFER_SIZE,
+              "<html><head><title>C Server</title></head><body><h1>Hello from C Server!</h1><p>Path requested: <strong>%s</strong></p></body></html>",
+              path);
+     size_t body_len = strlen(dynamic_body);
+
+    // Construct the full HTTP header
+    char header_buffer[BUFFER_SIZE];
+
+    // Use snprintf to format the header, inserting the correct Content-Length
+    size_t header_len = snprintf(header_buffer, BUFFER_SIZE, HTTP_HEADER_200, body_len);
+
+    // Send the header
+    if (write(client_sock, header_buffer, header_len) == -1) {
+        perror("Error writing response header");
+        return;
+    }
+
+    // Send the body
+    if (write(client_sock, dynamic_body, body_len) == -1) {
+        perror("Error writing response body");
+        return;
+    }
+
+    printf("[Response Sent]: 200 OK (Content-Length: %zu bytes)\n", body_len);
+ }
 
 /**
  * @brief Extracts the request path (e.g., "/index.html") from the HTTP request line.
